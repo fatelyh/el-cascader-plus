@@ -1,0 +1,31 @@
+{
+  "name": "el-cascader-plus",
+  "version": "1.0.3",
+  "private": false,
+  "main": "src/elementPlugin/index.js",
+  "author": "acelyh",
+  "description": "基于element-ui实现的二次封装级联组件，弥补了原element-ui级联组件懒加载经常无法回显的不足",
+  "license": "MIT",
+  "scripts": {
+    "serve": "vue-cli-service serve",
+    "build": "vue-cli-service build",
+    "lint": "vue-cli-service lint",
+    "buildnpm": "vue-cli-service build --target lib ./src/elementPlugin/index.js --name el-cascader-plus --dest el-cascader-plus "
+  },
+  "dependencies": {
+    "element-ui": "^2.15.13",
+    "vue": "^2.6.11",
+    "vue-router": "^3.2.0",
+    "vuex": "^3.4.0"
+  },
+  "devDependencies": {
+    "@vue/cli-plugin-babel": "~4.5.13",
+    "@vue/cli-plugin-router": "~4.5.13",
+    "@vue/cli-plugin-vuex": "~4.5.13",
+    "@vue/cli-service": "~4.5.13",
+    "sass": "1.32.0",
+    "sass-loader": "10.1.0",
+    "prettier": "^2.2.1",
+    "vue-template-compiler": "^2.6.11"
+  }
+}
