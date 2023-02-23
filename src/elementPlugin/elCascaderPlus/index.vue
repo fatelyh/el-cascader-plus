@@ -16,14 +16,11 @@
     @visible-change="visibleChange"
   >
     <template #default="allprops">
-      <template>
-        <slot v-bind="allprops">
-          <div class="label" @click="clickLabel(allprops)">
-            {{ allprops.data[innerProps.label] }}
-          </div>
-        </slot>
-      </template>
+      <div class="label" @click="clickLabel(allprops)">
+        <slot v-bind="allprops"> {{ allprops.data[innerProps.label] }} </slot>
+      </div>
     </template>
+
     <template #empty>
       <template>
         <slot name="empty">
