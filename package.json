@@ -1,6 +1,6 @@
 {
   "name": "el-cascader-plus",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "private": false,
   "main": "src/elementPlugin/index.js",
   "author": "acelyh",

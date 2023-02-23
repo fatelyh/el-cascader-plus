@@ -16,16 +16,20 @@
     @visible-change="visibleChange"
   >
     <template #default="allprops">
-      <div class="label" v-if="allprops.data" @click="clickLabel(allprops)">
+      <template>
         <slot v-bind="allprops">
-          {{ allprops.data[innerProps.label] }}
+          <div class="label" @click="clickLabel(allprops)">
+            {{ allprops.data[innerProps.label] }}
+          </div>
         </slot>
-      </div>
+      </template>
     </template>
     <template #empty>
-      <slot name="empty">
-        <li class="el-cascader__empty-text">无匹配数据</li>
-      </slot>
+      <template>
+        <slot name="empty">
+          <li class="el-cascader__empty-text">无匹配数据</li>
+        </slot>
+      </template>
     </template>
   </el-cascader>
 </template>
@@ -377,11 +381,11 @@ export default {
         if (Object.keys(optTree).length) {
           //有值的时候再赋值 不赋空值
           this.innerOptions = optTree;
+          this.$nextTick(() => {
+            this.innerValue = [];
+            this.innerValue = JSON.parse(JSON.stringify(this.value));
+          });
         }
-        this.$nextTick(() => {
-          this.innerValue = [];
-          this.innerValue = JSON.parse(JSON.stringify(this.value));
-        });
       });
     },
 
@@ -531,7 +535,6 @@ export default {
     },
     async getNode(node, resolve) {
       const { level, label } = node;
-      let vals = this.innerValue;
       // 叶子节点不请求直接resolve
       if (node.data && node.data[this.innerProps.leaf]) {
         resolve();
@@ -559,10 +562,8 @@ export default {
                 parentValue: node.value,
               };
             });
-            resolve(nodes);
             this.$nextTick(() => {
-              this.innerValue = [];
-              this.innerValue = vals;
+              resolve(nodes);
             });
           });
         } else {
@@ -592,11 +593,8 @@ export default {
             this.autoFeedBackSwitch &&
               this.autoFeedback() &&
               this.getLabel(innerOptions, level);
-            resolve(innerOptions);
-
             this.$nextTick(() => {
-              this.innerValue = [];
-              this.innerValue = vals;
+              resolve(innerOptions);
             });
           } else if (
             level == 0 &&
@@ -616,10 +614,8 @@ export default {
             this.autoFeedBackSwitch &&
               this.autoFeedback() &&
               this.getLabel(innerOptions, level);
-            resolve(innerOptions);
             this.$nextTick(() => {
-              this.innerValue = [];
-              this.innerValue = vals;
+              resolve(innerOptions);
             });
           } else if (level == 0 && !this.innerOptions.length) {
             // 调用当前选中项的下级数据并填充
@@ -634,10 +630,8 @@ export default {
                 this.autoFeedBackSwitch &&
                   this.autoFeedback() &&
                   this.getLabel(nodes, level);
-                resolve(nodes);
                 this.$nextTick(() => {
-                  this.innerValue = [];
-                  this.innerValue = vals;
+                  resolve(nodes);
                 });
               });
             }
@@ -649,9 +643,8 @@ export default {
               node.data[this.innerProps.children] &&
               node.data[this.innerProps.children].length
             ) {
-              this.$nextTick(() => {
-                resolve();
-              });
+              resolve();
+
               if (
                 this.levelChildNodes.length &&
                 this.levelChildNodes[level - 1] &&
@@ -673,10 +666,6 @@ export default {
                   this.$nextTick(() => {
                     // 赋值完下拉再赋值待回显数据
                     resolve(nodes);
-                    this.$nextTick(() => {
-                      this.innerValue = [];
-                      this.innerValue = vals;
-                    });
                   });
                 });
               }
@@ -692,10 +681,6 @@ export default {
                 this.$nextTick(() => {
                   // 赋值完下拉再赋值待回显数据
                   resolve(nodes);
-                  this.$nextTick(() => {
-                    this.innerValue = [];
-                    this.innerValue = vals;
-                  });
                 });
               });
             }
