@@ -17,7 +17,9 @@
   >
     <template #default="allprops">
       <div class="label" @click="clickLabel(allprops)">
-        <slot v-bind="allprops"> {{ allprops.data[innerProps.label] }} </slot>
+        <!-- <slot v-bind="allprops">  -->
+        {{ allprops.data[innerProps.label] }}
+        <!-- </slot> -->
       </div>
     </template>
 
