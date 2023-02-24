@@ -151,16 +151,21 @@ export default {
                 } else {
                   // 单选处理
                   if (this.innerValue.length) {
-                    let valCompare = val.slice(0, -1);
-                    //数据没被选过才重新获取options
-                    if (
-                      !this.allSingleCheckedArr
-                        .join()
-                        .includes(valCompare.join())
-                    ) {
-                      this.handleOpts();
+                    if (val && val.length) {
+                      let valCompare = val.slice(0, -1);
+                      //数据没被选过才重新获取options
+                      if (
+                        !this.allSingleCheckedArr
+                          .join()
+                          .includes(valCompare.join())
+                      ) {
+                        this.handleOpts();
+                      } else {
+                        this.innerValue = JSON.parse(JSON.stringify(val));
+                      }
                     } else {
-                      this.innerValue = JSON.parse(JSON.stringify(val));
+                      // 删除数据为空的时候处理
+                      this.innerValue = [];
                     }
                   } else {
                     this.innerValue = JSON.parse(JSON.stringify(val));
@@ -179,12 +184,19 @@ export default {
               } else {
                 // 单选回显处理
                 //数据没被选过才重新获取options
-                if (
-                  !this.allSingleCheckedArr.join().includes(valCompare.join())
-                ) {
-                  this.handleOpts();
+                if (val && val.length) {
+                  let valCompare = val.slice(0, -1);
+                  //数据没被选过才重新获取options
+                  if (
+                    !this.allSingleCheckedArr.join().includes(valCompare.join())
+                  ) {
+                    this.handleOpts();
+                  } else {
+                    this.innerValue = JSON.parse(JSON.stringify(val));
+                  }
                 } else {
-                  this.innerValue = JSON.parse(JSON.stringify(val));
+                  // 删除数据为空的时候处理
+                  this.innerValue = [];
                 }
               }
             }
