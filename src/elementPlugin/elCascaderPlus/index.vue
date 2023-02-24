@@ -1,5 +1,6 @@
 <template>
   <el-cascader
+    :key="key"
     v-on="$listeners"
     :style="$vnode.data.staticStyle"
     :class="$vnode.data.staticClass"
@@ -33,7 +34,12 @@
   </el-cascader>
 </template>
 <script>
-import { getTreeListAndFormat, arrListToTree, deepMerge } from "./utils.js";
+import {
+  getTreeListAndFormat,
+  arrListToTree,
+  deepMerge,
+  isPromise,
+} from "./utils.js";
 export default {
   name: "elCascaderPlus",
   computed: {
@@ -83,6 +89,9 @@ export default {
   watch: {
     value: {
       async handler(val, oldVal) {
+        this.allSingleCheckedArr = [
+          ...new Set([...this.allSingleCheckedArr, ...this.innerValue]),
+        ];
         // 将回显与弹窗功能分离，互不影响
         if (!this.isPopOpen && this.props.lazy == true) {
           // val长度大于0避免空值触发不回显的bug
@@ -142,11 +151,13 @@ export default {
                 } else {
                   // 单选处理
                   if (this.innerValue.length) {
-                    let innerValue = this.innerValue.slice(0, -1);
                     let valCompare = val.slice(0, -1);
-                    // 修复最后一级变动引起pannel选项渲染异常问题
-                    if (innerValue.join() != valCompare.join()) {
-                      this.isEmitRequestZero = true;
+                    //数据没被选过才重新获取options
+                    if (
+                      !this.allSingleCheckedArr
+                        .join()
+                        .includes(valCompare.join())
+                    ) {
                       this.handleOpts();
                     } else {
                       this.innerValue = JSON.parse(JSON.stringify(val));
@@ -156,7 +167,8 @@ export default {
                     this.autoFeedback();
                     // 改变isEmitRequestZero触发第一次0级请求
                     this.isEmitRequestZero = true;
-                    this.innerOptions = [];
+                    this.handleOpts();
+                    // this.innerOptions = [];
                   }
                 }
               }
@@ -166,10 +178,10 @@ export default {
                 this.handleMultOpts();
               } else {
                 // 单选回显处理
-                let innerValue = this.innerValue.slice(0, -1);
-                let valCompare = val.slice(0, -1);
-                // 修复最后一级变动引起pannel选项渲染异常问题
-                if (innerValue.join() != valCompare.join()) {
+                //数据没被选过才重新获取options
+                if (
+                  !this.allSingleCheckedArr.join().includes(valCompare.join())
+                ) {
                   this.handleOpts();
                 } else {
                   this.innerValue = JSON.parse(JSON.stringify(val));
@@ -195,6 +207,10 @@ export default {
   },
   data() {
     return {
+      key: 0,
+      // 所有被选中过的单选值
+      allSingleCheckedArr: [],
+      // 所有被选中的多选值
       allCheckedArr: [],
       isPopOpen: false,
       isFromOut: true,
@@ -228,6 +244,56 @@ export default {
     this.init();
   },
   methods: {
+    // 找到某个树节点进行插入数据操作
+    findTreeNode(value, nodes) {
+      for (let i = 0; i < this.innerOptions.length; i++) {
+        this.findAndInsert(this.innerOptions[i], value, false, nodes);
+      }
+    },
+    // 找到某个树节点，如果节点没有children则添加children数据，有children则返回
+    findAndInsert(item, cid, flag = false, nodes) {
+      if (item[this.innerProps.value] == cid) {
+        flag = true;
+      } else {
+        flag = false;
+      }
+      // 找到的节点如果已经有子集则返回
+      if (
+        flag &&
+        item[this.innerProps.children] &&
+        item[this.innerProps.children].length
+      ) {
+        return;
+      }
+      // 找到的节点如果没有子集则插入子集数据
+      else if (
+        flag &&
+        (!item[this.innerProps.children] ||
+          !item[this.innerProps.children].length)
+      ) {
+        this.$set(item, this.innerProps.children, nodes);
+        return;
+      }
+      // 如果没找到节点则继续查找其他有children的节点
+      else if (
+        !flag &&
+        item[this.innerProps.children] &&
+        item[this.innerProps.children].length
+      ) {
+        for (let i = 0; i < item[this.innerProps.children].length; i++) {
+          this.findAndInsert(
+            item[this.innerProps.children][i],
+            cid,
+            false,
+            nodes
+          );
+        }
+      }
+      // 如果没找到节点且节点无children则返回
+      else {
+        return;
+      }
+    },
     // 删除标签
     removeTag(e) {
       this.isRemoveTag = true;
@@ -327,6 +393,9 @@ export default {
                     : 0 >= this.maxLevel,
                 };
               });
+              if (!this.innerOptions.length) {
+                this.innerOptions = nodes;
+              }
               resolve(nodes);
             }
           );
@@ -364,23 +433,35 @@ export default {
       });
       Promise.all(optsListPromise).then(async (res) => {
         let optsList = [];
-        res.forEach((v) => {
+        res.forEach((v, index) => {
           optsList.push(...v);
+          if (!this.isMultiple) {
+            // 单选把子集nodes直接插入到options中
+            if (index != 0) {
+              this.findTreeNode(this.value[index - 1], v);
+            }
+          }
         });
-        // 深度合并
         let treeOptsOrign = JSON.parse(JSON.stringify(this.innerOptions));
+        // 数组转树
         let optTree = arrListToTree(JSON.parse(JSON.stringify(optsList)), {
           parentprop: "parentValue",
           valueProp: this.innerProps.value,
           childrenProp: this.innerProps.children,
         });
+        // 深度合并
         optTree = Object.keys(optTree).length
           ? JSON.parse(JSON.stringify(deepMerge(treeOptsOrign, optTree)))
           : treeOptsOrign;
         if (Object.keys(optTree).length) {
-          //有值的时候再赋值 不赋空值
-          this.innerOptions = optTree;
+          //有值的时候再对opt赋值 不赋空值
+          // 多选的时候改变options，单选采用直接插入到options中
+          if (this.isMultiple) {
+            this.innerOptions = optTree;
+            this.key++;
+          }
           this.$nextTick(() => {
+            // 最后在赋值选中项
             this.innerValue = [];
             this.innerValue = JSON.parse(JSON.stringify(this.value));
           });
@@ -434,20 +515,6 @@ export default {
       }
       this.$emit("visible-change", val);
     },
-    isPromise(val) {
-      return (
-        this.isObject(val) &&
-        this.isFunction(val.then) &&
-        this.isFunction(val.catch)
-      );
-    },
-
-    isObject(val) {
-      return typeof val === "object";
-    },
-    isFunction(val) {
-      return typeof val === "function";
-    },
 
     // 初始化
     init() {
@@ -485,12 +552,14 @@ export default {
             this.$emit("change", value);
           }
         });
-
         if (this.props.lazy == true) {
           this.innerProps.lazy = true;
-          // 补充单选label改变
+          // 补充单选label,选中值收集
           if (!this.isMultiple) {
-            this.innerProps.lazy = false;
+            this.allSingleCheckedArr = [
+              ...new Set([...this.allSingleCheckedArr, ...value]),
+            ];
+            // this.innerProps.lazy = false;
             value.forEach((v, index) => {
               this.levelChildNodes.forEach((e) => {
                 e.forEach((item) => {
@@ -502,7 +571,7 @@ export default {
             });
             this.autoFeedback();
           }
-
+          //  多选
           if (this.isMultiple) {
             let arr = [];
             value.forEach((v) => {
@@ -642,8 +711,6 @@ export default {
               node.data[this.innerProps.children] &&
               node.data[this.innerProps.children].length
             ) {
-              resolve();
-
               if (
                 this.levelChildNodes.length &&
                 this.levelChildNodes[level - 1] &&
@@ -652,33 +719,19 @@ export default {
                 this.autoFeedBackSwitch &&
                   this.autoFeedback() &&
                   this.getLabel(this.levelChildNodes[level], level);
-                resolve();
-              } else {
-                this.props.lazyLoad(node, async (result) => {
-                  result = await this.getResult(result);
-                  nodes = this.dealResult(result, level);
-                  this.levelChildNodes[level] = nodes;
-                  // 通过调用resolve将子节点数据返回，通知组件数据加载完成
-                  this.autoFeedBackSwitch &&
-                    this.autoFeedback() &&
-                    this.getLabel(nodes, level);
-                  this.$nextTick(() => {
-                    // 赋值完下拉再赋值待回显数据
-                    resolve(nodes);
-                  });
-                });
               }
+              resolve();
             } else {
+              // 非0级点击下级无数据时
               this.props.lazyLoad(node, async (result) => {
                 result = await this.getResult(result);
                 nodes = this.dealResult(result, level);
                 this.levelChildNodes[level] = nodes;
-                // 通过调用resolve将子节点数据返回，通知组件数据加载完成
                 this.autoFeedBackSwitch &&
                   this.autoFeedback() &&
                   this.getLabel(nodes, level);
+                // 通过调用resolve将子节点数据返回，通知组件数据加载完成
                 this.$nextTick(() => {
-                  // 赋值完下拉再赋值待回显数据
                   resolve(nodes);
                 });
               });
@@ -697,7 +750,7 @@ export default {
         } catch (err) {
           console.log(err);
         }
-      } else if (this.isPromise(result)) {
+      } else if (isPromise(result)) {
         try {
           result = await result;
           return result;

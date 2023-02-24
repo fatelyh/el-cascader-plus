@@ -101,3 +101,14 @@ export const deepMerge = (a, b) => {
   }
   return a;
 };
+
+export const isPromise = (val) => {
+  return isObject(val) && isFunction(val.then) && isFunction(val.catch);
+};
+
+export const isObject = (val) => {
+  return typeof val === "object";
+};
+export const isFunction = (val) => {
+  return typeof val === "function";
+};
