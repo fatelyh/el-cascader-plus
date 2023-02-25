@@ -18,17 +18,22 @@
   >
     <template #default="allprops">
       <div class="label" @click="clickLabel(allprops)">
-        <!-- <slot v-bind="allprops">  -->
-        {{ allprops.data[innerProps.label] }}
-        <!-- </slot> -->
+        <div v-if="$scopedSlots.default">
+          <slot v-bind="allprops"></slot>
+        </div>
+        <div v-else>
+          {{ allprops.data[innerProps.label] }}
+        </div>
       </div>
     </template>
-
     <template #empty>
       <template>
-        <slot name="empty">
+        <div v-if="$slots.empty">
+          <slot name="empty"></slot>
+        </div>
+        <div v-else>
           <li class="el-cascader__empty-text">无匹配数据</li>
-        </slot>
+        </div>
       </template>
     </template>
   </el-cascader>
@@ -89,9 +94,6 @@ export default {
   watch: {
     value: {
       async handler(val, oldVal) {
-        this.allSingleCheckedArr = [
-          ...new Set([...this.allSingleCheckedArr, ...this.innerValue]),
-        ];
         // 将回显与弹窗功能分离，互不影响
         if (!this.isPopOpen && this.props.lazy == true) {
           // val长度大于0避免空值触发不回显的bug
@@ -405,8 +407,12 @@ export default {
                     : 0 >= this.maxLevel,
                 };
               });
-              if (!this.innerOptions.length) {
+
+              if (!this.innerOptions.length && !this.isMultiple) {
                 this.innerOptions = nodes;
+                // 每赋值一级options便回显一级
+                this.getLabel(this.innerOptions, 0);
+                this.autoFeedback();
               }
               resolve(nodes);
             }
@@ -437,6 +443,11 @@ export default {
                   parentValue: e[this.innerProps.value],
                 };
               });
+              if (!this.isMultiple) {
+                //每获取一级nodes回显一级
+                this.getLabel(nodes, e.level);
+                this.autoFeedback();
+              }
               resolve(nodes);
             }
           );
@@ -667,7 +678,6 @@ export default {
               Object.keys(this.levelChildNodes[0]).length
                 ? JSON.parse(JSON.stringify(this.levelChildNodes[0]))
                 : JSON.parse(JSON.stringify(this.innerOptions));
-
             // 关键在于这个this.$nextTick,在页面加载完成后再回填子选项则可以自动响应下一级，
             // 没加则无法响应回显下一级
             this.autoFeedBackSwitch &&
@@ -791,8 +801,10 @@ export default {
     },
     // 从获取的nodes节点中得到当前level的选项值对应的label
     getLabel(nodes, level) {
-      let input = nodes.find((node) => this.innerValue[level] === node.value);
-      input = input ? input.label : "";
+      let input = nodes.find(
+        (node) => this.innerValue[level] === node[this.innerProps.value]
+      );
+      input = input ? input[this.innerProps.label] : "";
       if (input) {
         this.$set(this.inputArr, level, input);
       }
