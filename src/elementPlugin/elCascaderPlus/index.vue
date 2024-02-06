@@ -39,12 +39,7 @@
   </el-cascader>
 </template>
 <script>
-import {
-  getTreeListAndFormat,
-  arrListToTree,
-  deepMerge,
-  isPromise,
-} from "./utils.js";
+import { getTreeListAndFormat, arrListToTree, deepMerge, isPromise } from "./utils.js";
 export default {
   name: "elCascaderPlus",
   computed: {
@@ -92,6 +87,12 @@ export default {
     },
   },
   watch: {
+    options(val) {
+      // let opts = JSON.parse(JSON.stringify(val));
+      this.addLeafProperty(val);
+      console.log(val);
+      this.innerOptions = val;
+    },
     value: {
       async handler(val, oldVal) {
         // 将回显与弹窗功能分离，互不影响
@@ -109,9 +110,7 @@ export default {
                   JSON.parse(JSON.stringify(this.innerOptions)),
                   this.innerProps.children
                 );
-                selectList = selectList.map(
-                  (opt) => opt[this.innerProps.value]
-                );
+                selectList = selectList.map((opt) => opt[this.innerProps.value]);
                 this.selectList = selectList;
                 const same = [];
                 for (const item of val) {
@@ -156,11 +155,7 @@ export default {
                     if (val && val.length) {
                       let valCompare = val.slice(0, -1);
                       //数据没被选过才重新获取options
-                      if (
-                        !this.allSingleCheckedArr
-                          .join()
-                          .includes(valCompare.join())
-                      ) {
+                      if (!this.allSingleCheckedArr.join().includes(valCompare.join())) {
                         this.handleOpts();
                       } else {
                         this.innerValue = JSON.parse(JSON.stringify(val));
@@ -189,9 +184,7 @@ export default {
                 if (val && val.length) {
                   let valCompare = val.slice(0, -1);
                   //数据没被选过才重新获取options
-                  if (
-                    !this.allSingleCheckedArr.join().includes(valCompare.join())
-                  ) {
+                  if (!this.allSingleCheckedArr.join().includes(valCompare.join())) {
                     this.handleOpts();
                   } else {
                     this.innerValue = JSON.parse(JSON.stringify(val));
@@ -211,7 +204,7 @@ export default {
           }
         } else {
           // 非懒加载直接赋值
-          if (this.innerValue.join() != val.join()) {
+          if (this.innerValue && this.innerValue.join() != val.join()) {
             this.innerValue = JSON.parse(JSON.stringify(val));
           }
         }
@@ -258,6 +251,43 @@ export default {
     this.init();
   },
   methods: {
+    // 处理树，无leaf则加leaf,去除空children
+    addLeafProperty(tree) {
+      if (Array.isArray(tree)) {
+        // 如果传入的参数是数组类型，则表示这是根节点或者上一层的节点
+        for (let i = 0; i < tree.length; i++) {
+          const node = tree[i];
+          if (
+            //  删除空children
+            node[this.innerProps.children] &&
+            !node[this.innerProps.children].length
+          ) {
+            delete node[this.innerProps.children];
+            // 判断当前节点是否有子节点
+            node[this.innerProps.leaf] = true; // 没有子节点时将 leaf 设置为 true
+          } else if (
+            !node[this.innerProps.children] ||
+            !node[this.innerProps.children].length
+          ) {
+            // 判断当前节点是否有子节点
+            node[this.innerProps.leaf] = true; // 没有子节点时将 leaf 设置为 true
+          } else {
+            this.addLeafProperty(node[this.innerProps.children]); // 对子节点进行递归调用
+          }
+        }
+        return tree;
+      } else {
+        // 单个节点处理
+        if (!tree.children || !tree.children.length) {
+          // 判断当前节点是否有子节点
+          tree.leaf = true; // 没有子节点时将 leaf 设置为 true
+        } else {
+          addLeafProperty(tree.children); // 对子节点进行递归调用
+        }
+
+        return [tree];
+      }
+    },
     // 找到某个树节点进行插入数据操作
     findTreeNode(value, nodes) {
       for (let i = 0; i < this.innerOptions.length; i++) {
@@ -282,8 +312,7 @@ export default {
       // 找到的节点如果没有子集则插入子集数据
       else if (
         flag &&
-        (!item[this.innerProps.children] ||
-          !item[this.innerProps.children].length)
+        (!item[this.innerProps.children] || !item[this.innerProps.children].length)
       ) {
         this.$set(item, this.innerProps.children, nodes);
         return;
@@ -295,12 +324,51 @@ export default {
         item[this.innerProps.children].length
       ) {
         for (let i = 0; i < item[this.innerProps.children].length; i++) {
-          this.findAndInsert(
-            item[this.innerProps.children][i],
-            cid,
-            false,
-            nodes
-          );
+          this.findAndInsert(item[this.innerProps.children][i], cid, false, nodes);
+        }
+      }
+      // 如果没找到节点且节点无children则返回
+      else {
+        return;
+      }
+    },
+    // 找到某个树节点进行插入数据操作
+    findTreeNode(value, nodes) {
+      for (let i = 0; i < this.innerOptions.length; i++) {
+        this.findAndInsert(this.innerOptions[i], value, false, nodes);
+      }
+    },
+    // 找到某个树节点，如果节点没有children则添加children数据，有children则返回
+    findAndInsert(item, cid, flag = false, nodes) {
+      if (item[this.innerProps.value] == cid) {
+        flag = true;
+      } else {
+        flag = false;
+      }
+      // 找到的节点如果已经有子集则返回
+      if (
+        flag &&
+        item[this.innerProps.children] &&
+        item[this.innerProps.children].length
+      ) {
+        return;
+      }
+      // 找到的节点如果没有子集则插入子集数据
+      else if (
+        flag &&
+        (!item[this.innerProps.children] || !item[this.innerProps.children].length)
+      ) {
+        this.$set(item, this.innerProps.children, nodes);
+        return;
+      }
+      // 如果没找到节点则继续查找其他有children的节点
+      else if (
+        !flag &&
+        item[this.innerProps.children] &&
+        item[this.innerProps.children].length
+      ) {
+        for (let i = 0; i < item[this.innerProps.children].length; i++) {
+          this.findAndInsert(item[this.innerProps.children][i], cid, false, nodes);
         }
       }
       // 如果没找到节点且节点无children则返回
@@ -349,9 +417,7 @@ export default {
       valArr = valArr.filter(
         (v, index) =>
           index ==
-          valArr.findIndex(
-            (e) => e[this.innerProps.value] == v[this.innerProps.value]
-          )
+          valArr.findIndex((e) => e[this.innerProps.value] == v[this.innerProps.value])
       );
       this.dealOpts(valArr);
     },
@@ -376,9 +442,7 @@ export default {
       valArr = valArr.filter(
         (v, index) =>
           index ==
-          valArr.findIndex(
-            (e) => e[this.innerProps.value] == v[this.innerProps.value]
-          )
+          valArr.findIndex((e) => e[this.innerProps.value] == v[this.innerProps.value])
       );
       this.dealOpts(valArr);
     },
@@ -605,10 +669,7 @@ export default {
               // 如果已有选项则关闭lazy，修复取消点击依然全选
               this.$nextTick(() => {
                 // 1、删除标签会出现清空已选项的情况修复，2、重复点击选择选中失效修复
-                if (
-                  this.isRemoveTag == true ||
-                  this.innerProps.checkStrictly == true
-                ) {
+                if (this.isRemoveTag == true || this.innerProps.checkStrictly == true) {
                   this.innerProps.lazy = true;
                   this.isRemoveTag == false;
                 } else {
@@ -674,8 +735,7 @@ export default {
             // 赋值完下拉再赋值选中数据
             let innerOptions = [];
             innerOptions =
-              this.levelChildNodes.length &&
-              Object.keys(this.levelChildNodes[0]).length
+              this.levelChildNodes.length && Object.keys(this.levelChildNodes[0]).length
                 ? JSON.parse(JSON.stringify(this.levelChildNodes[0]))
                 : JSON.parse(JSON.stringify(this.innerOptions));
             // 关键在于这个this.$nextTick,在页面加载完成后再回填子选项则可以自动响应下一级，
@@ -696,8 +756,7 @@ export default {
             // 赋值完下拉再赋值选中数据可以引起请求下一级数据
             let innerOptions = [];
             innerOptions =
-              this.levelChildNodes.length &&
-              Object.keys(this.levelChildNodes[0]).length
+              this.levelChildNodes.length && Object.keys(this.levelChildNodes[0]).length
                 ? JSON.parse(JSON.stringify(this.levelChildNodes[0]))
                 : [];
 
