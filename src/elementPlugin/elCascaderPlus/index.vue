@@ -88,9 +88,7 @@ export default {
   },
   watch: {
     options(val) {
-      // let opts = JSON.parse(JSON.stringify(val));
       this.addLeafProperty(val);
-      console.log(val);
       this.innerOptions = val;
     },
     value: {
@@ -282,7 +280,7 @@ export default {
           // 判断当前节点是否有子节点
           tree.leaf = true; // 没有子节点时将 leaf 设置为 true
         } else {
-          addLeafProperty(tree.children); // 对子节点进行递归调用
+          this.addLeafProperty(tree.children); // 对子节点进行递归调用
         }
 
         return [tree];
