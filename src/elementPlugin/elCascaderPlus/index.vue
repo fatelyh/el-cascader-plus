@@ -94,7 +94,7 @@ export default {
     value: {
       async handler(val, oldVal) {
         // 将回显与弹窗功能分离，互不影响
-        if (!this.isPopOpen && this.props.lazy == true) {
+        if (!this.isPopOpen && this.innerProps.lazy == true) {
           // val长度大于0避免空值触发不回显的bug
           if (Array.isArray(val) == true && val.length) {
             // 新值和内部值长度不一样则直接手动触发getnode，相同时则比对各个值是否一一对应，空值则直接重新渲染
@@ -202,7 +202,11 @@ export default {
           }
         } else {
           // 非懒加载直接赋值
-          if (this.innerValue && this.innerValue.join() != val.join()) {
+          if (
+            !this.innerValue ||
+            !this.innerValue.length ||
+            (this.innerValue && this.innerValue.join() != val.join())
+          ) {
             this.innerValue = JSON.parse(JSON.stringify(val));
           }
         }
@@ -235,6 +239,7 @@ export default {
         label: "label",
         children: "children",
         leaf: "leaf",
+        lazy: false,
         ...this.props,
         lazyLoad: this.getNode,
       },
